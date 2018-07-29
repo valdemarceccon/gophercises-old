@@ -5,27 +5,42 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 )
 
 func main() {
 	var file = flag.String("file", "problems.csv", "CSV file containing the quiz problems.")
+	var quizTime = flag.Int("timer", 30, "Total quiz time.")
 
 	flag.Parse()
 	problems := parseFile(*file)
 
 	var score uint
 
+	timer := time.NewTimer(time.Duration(*quizTime) * time.Second)
+
 	for i, problem := range problems {
-		var resp string
 		fmt.Printf("%d - %s: ", i+1, problem.question)
-		fmt.Scanf("%s\n", &resp)
 
-		if resp == problem.response {
-			score++
+		respChan := make(chan string)
+
+		go func() {
+			var resp string
+			fmt.Scanf("%s\n", &resp)
+			respChan <- resp
+		}()
+
+		select {
+		case <-timer.C:
+			fmt.Printf("\nTime ended. Score: %d\n", score)
+			return
+		case resp := <-respChan:
+			if resp == problem.response {
+				score++
+			}
 		}
-	}
 
-	fmt.Printf("Score: %d\n", score)
+	}
 
 }
 
