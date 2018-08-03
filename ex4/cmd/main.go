@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"golang.org/x/net/html"
+	"github.com/valdemarceccon/gophercises/ex4/linkparser"
 )
 
 func main() {
@@ -18,24 +18,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	z := html.NewTokenizer(arquivo)
+	links, err := linkparser.Parse(arquivo)
 
-	// links := make([]Link, 10)
-
-	for {
-		if z.Next() == html.ErrorToken {
-			fmt.Printf("%v\n", z.Token())
-			break
-		}
-
-		v, _ := z.TagName()
-
-		fmt.Printf("%s - %v\n", v, z.Token())
+	if err != nil {
+		fmt.Printf("Could not parse the file %s. Error: %s\n", *htmlFile, err)
+		os.Exit(1)
 	}
 
-}
-
-type Link struct {
-	Href string
-	Text string
+	fmt.Println(links)
 }
