@@ -1,8 +1,8 @@
 package linkparser
 
 import (
-	"fmt"
 	"io"
+	"strings"
 
 	"golang.org/x/net/html"
 )
@@ -22,52 +22,56 @@ func Parse(r io.Reader) ([]Link, error) {
 		return nil, err
 	}
 
-	result := teste(node)
+	links := parse(node.FirstChild)
 
-	return result, nil
+	return links, nil
 }
 
-func text(node *html.Node) string {
+func parse(node *html.Node) []Link {
+	var ret []Link
+	links := linkNodes(node)
 
-	if node.Type == html.TextNode {
-		return node.Data
-	}
-
-	var result string
-
-	for nodesib := node.FirstChild; nodesib != nil; nodesib = nodesib.NextSibling {
-		result += text(nodesib) + " "
-	}
-
-	return result
-}
-
-func nodeLinks(node *html.Node) []*html.Node {
-	var ret []*html.Node
-
-	if node.Data == "a" {
-		ret = append(ret, node)
-	} else {
-		for nNode := node.FirstChild; nNode != nil; nNode = node.NextSibling {
-			if nNode.Data == "a" {
-				ret = append(ret, nNode)
-			} else {
-				ret = append(ret, nodeLinks(nNode)...)
-			}
-		}
+	for _, l := range links {
+		ret = append(ret, Link{text(l), href(l)})
 	}
 
 	return ret
 }
 
-func teste(node *html.Node) []Link {
-	result := []Link{}
+func linkNodes(node *html.Node) []*html.Node {
+	var ret []*html.Node
 
-	nodelinks := nodeLinks(node)
+	if node.Data == "a" {
+		ret = append(ret, node)
+	} else {
+		for inner := node.FirstChild; inner != nil; inner = inner.NextSibling {
+			ret = append(ret, linkNodes(inner)...)
+		}
+	}
+	return ret
+}
 
-	for _, nodelink := range nodelinks {
-		fmt.Println(nodelink)
+func text(node *html.Node) string {
+	var ret string
+	for inner := node.FirstChild; inner != nil; inner = inner.NextSibling {
+		if inner.Type == html.TextNode {
+			ret += inner.Data
+		} else {
+			ret += text(inner)
+		}
 	}
 
-	return result
+	ret = strings.Join(strings.Fields(ret), " ")
+
+	return ret
+}
+
+func href(node *html.Node) string {
+	for _, v := range node.Attr {
+		if v.Key == "href" {
+			return v.Val
+		}
+	}
+
+	return ""
 }
