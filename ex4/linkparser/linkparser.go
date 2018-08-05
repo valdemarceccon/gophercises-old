@@ -22,7 +22,7 @@ func Parse(r io.Reader) ([]Link, error) {
 		return nil, err
 	}
 
-	links := parse(node.FirstChild)
+	links := parse(node)
 
 	return links, nil
 }
