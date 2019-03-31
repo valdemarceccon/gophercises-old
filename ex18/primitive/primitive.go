@@ -31,13 +31,19 @@ const (
 // mode you want to use. By defaukt, ModeTriangle will be used.
 func WithMode(mode Mode) func() []string {
 	return func() []string {
-		return []string{"-n", fmt.Sprintf("%d", mode)}
+		return []string{"-m", fmt.Sprintf("%d", mode)}
 	}
 }
 
 // Transform will take the provided image and apply a primitive
 // transformation to it, then return a reader to the resulting image.
 func Transform(image io.Reader, ext string, numShapes int, opts ...func() []string) (io.Reader, error) {
+	var args []string
+
+	for _, opt := range opts {
+		args = append(args, opt()...)
+	}
+
 	in, err := tempfile("in_", ext)
 	if err != nil {
 		return nil, err
@@ -58,7 +64,7 @@ func Transform(image io.Reader, ext string, numShapes int, opts ...func() []stri
 		return nil, err
 	}
 
-	stdCombo, err := primitive(in.Name(), out.Name(), numShapes, ModeCombo)
+	stdCombo, err := primitive(in.Name(), out.Name(), numShapes, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,16 +82,17 @@ func Transform(image io.Reader, ext string, numShapes int, opts ...func() []stri
 
 }
 
-func primitive(inputFile, outputFile string, numShapes int, mode Mode) (string, error) {
-	args := fmt.Sprintf("-i %s -o %s -n %d -m %d", inputFile, outputFile, numShapes, mode)
-	cmd := exec.Command("primitive", strings.Fields(args)...)
+func primitive(inputFile, outputFile string, numShapes int, args ...string) (string, error) {
+	argStr := fmt.Sprintf("-i %s -o %s -n %d", inputFile, outputFile, numShapes)
+	args = append(strings.Fields(argStr), args...)
+	cmd := exec.Command("primitive", args...)
 	b, err := cmd.CombinedOutput()
 
 	return string(b), err
 }
 
 func tempfile(prefix, ext string) (*os.File, error) {
-	in, err := ioutil.TempFile("", "in_")
+	in, err := ioutil.TempFile("", prefix)
 	if err != nil {
 		return nil, errors.New("tempfile: failed to create temporary file")
 	}

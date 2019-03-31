@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/valdemarceccon/gophercises/ex18/primitive"
@@ -29,33 +32,48 @@ func main() {
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			fmt.Println(err)
 			return
 		}
 		defer file.Close()
 
-		ext := filepath.Ext(header.Filename)
+		ext := filepath.Ext(header.Filename)[1:]
 
-		out, err := primitive.Transform(file, ext, 33)
+		out, err := primitive.Transform(file, ext, 100, primitive.WithMode(primitive.ModeCircle))
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			fmt.Println(err)
 			return
 		}
 
-		switch ext {
-		case ".jpg":
-			fallthrough
-		case ".jpeg":
-			w.Header().Set("Content-Type", "image/jpeg")
-		case ".png":
-			w.Header().Set("Content-Type", "image/png")
-		default:
-			http.Error(w, fmt.Sprintf("Invalid image type: %s", ext), http.StatusBadRequest)
-			return
+		outFile, err := tempfile("", ext)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			fmt.Println(err)
 		}
+		defer outFile.Close()
+		io.Copy(outFile, out)
 
-		io.Copy(w, out)
+		redirURL := fmt.Sprintf("/%s", outFile.Name())
+
+		http.Redirect(w, r, redirURL, http.StatusFound)
 	})
 
+	fs := http.FileServer(http.Dir("./img/"))
+
+	mux.Handle("/img/", http.StripPrefix("/img/", fs))
+
 	log.Fatal(http.ListenAndServe(":3000", mux))
+}
+
+func tempfile(prefix, ext string) (*os.File, error) {
+	in, err := ioutil.TempFile("./img/", prefix)
+	if err != nil {
+		return nil, errors.New("main: failed to create temporary file")
+	}
+
+	defer os.Remove(in.Name())
+	return os.Create(fmt.Sprintf("%s.%s", in.Name(), ext))
+
 }
